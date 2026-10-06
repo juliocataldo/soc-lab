@@ -15,7 +15,7 @@ header h1 small{color:var(--mut);font-weight:400;margin-left:8px}
 .kpi{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:4px 10px;text-align:center;min-width:92px}
 .kpi b{display:block;font-size:18px}.kpi span{color:var(--mut);font-size:11px}
 input[type=text],select,textarea{background:var(--bg);color:var(--tx);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font:inherit;width:100%}
-header input{width:200px}
+header input[type=text]{width:200px}
 button{background:var(--acc);color:#04111f;border:0;border-radius:6px;padding:7px 12px;font:inherit;font-weight:600;cursor:pointer}
 button.sec{background:var(--panel2);color:var(--tx);border:1px solid var(--line)}
 button:disabled{opacity:.45;cursor:not-allowed}
@@ -65,6 +65,7 @@ dialog::backdrop{background:#000a}
   <div class="kpi"><b id="kVer">0</b><span>Vereditos certos</span></div>
   <div class="kpi"><b id="kEnr">0</b><span>Consultas feitas</span></div>
   <button class="sec" id="bRep">Relatório</button>
+  <button class="sec" id="bJson" title="Resultado estruturado para o professor">Exportar .json</button>
   <button id="bDeb">Debrief</button>
   <button class="sec" id="bRst">Reiniciar</button>
 </header>
@@ -239,7 +240,7 @@ function renderList(){
     if(S.filter==='new'&&d)continue;if(S.filter==='done'&&!d)continue;
     const c=h('div',{class:`card s-${a.sev}${d?' done':''}${S.sel===a.id?' sel':''}`,tabindex:'0',role:'button','aria-label':`${a.id} ${a.title}`,
       onclick:()=>select(a.id),onkeydown:e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();select(a.id);}}},
-      h('div',{class:'m'},h('b',null,a.id),a.time,a.src,h('span',{class:'chip'},a.sev),d?h('span',{class:'chip ok'},'triado'):null),
+      h('div',{class:'m'},h('b',null,a.id),h('span',null,a.time),h('span',null,a.src),h('span',{class:'chip'},a.sev),d?h('span',{class:'chip ok'},'triado'):null),
       h('div',{class:'t'},a.title));
     box.append(c);}
   const n=Object.keys(S.st).length;$('#kTri').textContent=`${n}/${ALERTS.length}`;
@@ -278,15 +279,16 @@ function buildForm(a,done){
   const sel=(id,opts,val)=>{const s=h('select',{id,disabled:dis?'':false},h('option',{value:''},'- selecione -'),...opts.map(([v,t])=>h('option',{value:v,selected:val===v?'':false},v==='NA'||v==='none'?t:(id==='tech'?`${v} - ${t}`:t))));return s;};
   f.append(h('div',{class:'grid2'},
     h('div',null,h('label',{for:'tech'},'Técnica MITRE ATT&CK'),sel('tech',TECHS,A.tech)),
-    h('div',null,h('label',{for:'inc'},'Relação com outros alertas'),sel('inc',[['A','Faz parte de uma cadeia de ataque (Incidente A)'],['none','Evento isolado / sem relação']],A.inc))));
+    h('div',null,h('label',{for:'inc'},'Relação com outros alertas'),sel('inc',[['A','Faz parte de uma cadeia de ataque (Incidente A)'],['none','Evento isolado / sem relação']],A.inc)),
+    h('div',null,h('label',{for:'conf'},'Confiança na sua triagem'),sel('conf',[['1','1 - chutei'],['2','2 - insegura(o)'],['3','3 - razoável'],['4','4 - confiante'],['5','5 - tenho certeza']],A.conf))));
   f.append(h('fieldset',{style:'margin-top:10px'},h('legend',null,'Ações recomendadas'),...Object.entries(ACTIONS).map(([k,v])=>
     h('label',{class:'opt'},h('input',{type:'checkbox',name:'act',value:k,checked:A.actions&&A.actions.includes(k)?'':false,disabled:dis?'':false}),' '+v))));
   f.append(h('label',{for:'note'},'Justificativa (1-2 linhas)'),h('textarea',{id:'note',rows:'2',maxlength:'400',disabled:dis?'':false},A.note||''));
   const err=h('div',{class:'err',role:'alert'});
   f.append(err,h('button',{type:'button',disabled:dis?'':false,onclick:()=>{
     const ans={verdict:(f.querySelector('[name=verdict]:checked')||{}).value,sev:(f.querySelector('[name=sev]:checked')||{}).value,
-      tech:f.querySelector('#tech').value,inc:f.querySelector('#inc').value,actions:[...f.querySelectorAll('[name=act]:checked')].map(x=>x.value),note:f.querySelector('#note').value.trim()};
-    if(!ans.verdict||!ans.sev||!ans.tech||!ans.inc||!ans.actions.length){err.textContent='Preencha veredito, severidade, técnica, relação e ao menos uma ação.';return;}
+      tech:f.querySelector('#tech').value,inc:f.querySelector('#inc').value,conf:f.querySelector('#conf').value,actions:[...f.querySelectorAll('[name=act]:checked')].map(x=>x.value),note:f.querySelector('#note').value.trim()};
+    if(!ans.verdict||!ans.sev||!ans.tech||!ans.inc||!ans.conf||!ans.actions.length){err.textContent='Preencha veredito, severidade, técnica, relação, confiança e ao menos uma ação.';return;}
     S.st[a.id]={ans,g:grade(a,ans)};renderList();renderDetail();}},'Registrar triagem'));
   return f;
 }
@@ -308,6 +310,7 @@ function openDebrief(){
   const tot=done.reduce((s,[,x])=>s+x.g.pts,0);
   dlg.append(h('h2',null,'Debrief do turno'),h('p',null,`Triados: ${done.length}/${ALERTS.length} | Aderência: ${tot}/${done.length*5||0} pontos | Consultas a IOCs: ${S.enr.size}`));
   if(done.length<ALERTS.length)dlg.append(h('div',{class:'warn'},'Ainda há alertas pendentes. O debrief completo fica melhor depois de triar todos.'));
+  dlg.append(h('p',null,h('b',null,'Calibração: '),calibTxt(done.map(([,x])=>({ok:x.g.v,conf:+x.ans.conf}))),'. Errar com confiança alta é o ponto cego mais perigoso de um analista: reveja esses casos primeiro.'));
   const inc=ALERTS.filter(a=>a.ref.inc==='A');
   dlg.append(h('h3',null,'Incidente A - linha do tempo da cadeia de ataque'),
     h('div',{class:'tl'},...inc.map(a=>h('div',null,h('b',null,a.time+' '),`${a.id} - ${a.title}`))));
@@ -334,7 +337,16 @@ function downloadReport(){
   const l=h('a',{href:u,download:'relatorio-soc.md'});document.body.append(l);l.click();l.remove();setTimeout(()=>URL.revokeObjectURL(u),1000);
 }
 
+/* ===== Resultado estruturado (para o painel da turma) e calibração ===== */
+const T0=Date.now();
+function exportJson(lab,items,extra){const o={schema:1,lab,ts:new Date().toISOString(),mins:Math.round((Date.now()-T0)/60000),who:($('#analyst').value.trim()||null),items,extra:extra||{}};
+  const b=new Blob([JSON.stringify(o,null,1)],{type:'application/json'});const u=URL.createObjectURL(b);const l=h('a',{href:u,download:`resultado-${lab}.json`});document.body.append(l);l.click();l.remove();setTimeout(()=>URL.revokeObjectURL(u),1000);}
+function calibTxt(list){const hi=list.filter(x=>x.conf>=4),lo=list.filter(x=>x.conf&&x.conf<=2);
+  return `confiança alta (4-5): ${hi.filter(x=>x.ok).length} acertos e ${hi.filter(x=>!x.ok).length} erros | confiança baixa (1-2): ${lo.filter(x=>x.ok).length} acertos e ${lo.filter(x=>!x.ok).length} erros`;}
+function exportLab1(){exportJson('soc-triagem',Object.entries(S.st).map(([id,x])=>({id,conf:+x.ans.conf,m:{veredito:x.g.v,severidade:x.g.s,tecnica:x.g.t,correlacao:x.g.i,acoes:x.g.ac}})),{consultas:S.enr.size});}
+
 /* ===== Eventos ===== */
+$('#bJson').addEventListener('click',exportLab1);
 document.querySelectorAll('.filters button').forEach(b=>b.addEventListener('click',()=>{S.filter=b.dataset.f;
   document.querySelectorAll('.filters button').forEach(x=>{x.classList.toggle('on',x===b);x.classList.toggle('sec',x!==b);});renderList();}));
 $('#bDeb').addEventListener('click',openDebrief);

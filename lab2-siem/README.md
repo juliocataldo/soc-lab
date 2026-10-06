@@ -56,3 +56,26 @@ Você pode navegar entre as abas livremente. A **Parte 3** funciona mesmo sem te
 - Discuta com a dupla, mas **registre o seu próprio trabalho**.
 - Não compartilhe a solução com quem ainda não terminou.
 - Os IOCs e regras deste exercício **não devem ser usados em ambientes reais** sem adaptação e teste.
+
+## Confiança (metacognição)
+Em cada decisão você informa **o quanto confia nela** (1 = chutei, 5 = tenho certeza). No Debrief você vê seus erros com **confiança alta**: são o ponto cego mais perigoso de um profissional de segurança, e o melhor lugar para estudar primeiro.
+
+## Objetivos de aprendizagem
+Ao final você será capaz de: **procurar** indicadores de intrusão em logs brutos; **projetar e calibrar regras de detecção** avaliando precisão, recall e F1; **reconstruir** a linha do tempo de um incidente; e **organizar a resposta** por fase (contenção, erradicação, recuperação, pós-incidente).
+
+## Entregando o resultado (opcional)
+Ao final, clique em **Exportar .json** e envie o arquivo ao professor. Ele agrega os resultados da turma para ver **quais conceitos precisam ser reforçados**; o nome/RM é opcional. O arquivo é só diagnóstico: não vale nota.
+
+## Série de labs (todos sem nota, 100% offline)
+| Lab | Repositório |
+|---|---|
+| Triagem de alertas (SOC) | https://github.com/juliocataldo/soc-lab |
+| Mini-SIEM: caça, detecção e resposta | https://github.com/juliocataldo/soc-lab (pasta `lab2-siem/`) |
+| Threat Modeling: STRIDE + DREAD | https://github.com/juliocataldo/threat-modeling-lab |
+| Supply Chain: revisão de dependências | https://github.com/juliocataldo/supply-chain-lab |
+
+## Para ler depois
+- NIST SP 800-61 (resposta a incidentes) e NIST CSF 2.0 (funções Detect, Respond e Recover)
+- Palantir, *Alerting and Detection Strategy Framework*
+- SigmaHQ (regras de detecção abertas)
+- Hutchins et al., *Intrusion Kill Chains* (2011)

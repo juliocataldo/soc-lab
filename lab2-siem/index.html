@@ -14,7 +14,7 @@ header h1{font-size:16px;margin:0;margin-right:auto}header h1 small{color:var(--
 .kpi{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:4px 10px;text-align:center;min-width:88px}
 .kpi b{display:block;font-size:18px}.kpi span{color:var(--mut);font-size:11px}
 input[type=text],input[type=time],input[type=number],select,textarea{background:var(--bg);color:var(--tx);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font:inherit;width:100%}
-header input{width:190px}
+header input[type=text]{width:190px}
 button{background:var(--acc);color:#04111f;border:0;border-radius:6px;padding:7px 12px;font:inherit;font-weight:600;cursor:pointer}
 button.sec{background:var(--panel2);color:var(--tx);border:1px solid var(--line)}
 button:disabled{opacity:.45;cursor:not-allowed}
@@ -67,6 +67,7 @@ fieldset{border:1px solid var(--line);border-radius:8px;margin:0 0 10px;padding:
   <div class="kpi"><b id="kCs">0</b><span>Achados julgados</span></div>
   <div class="kpi"><b id="kCh">0/3</b><span>Regras aprovadas</span></div>
   <button class="sec" id="bRep">Relatório</button>
+  <button class="sec" id="bJson" title="Resultado estruturado para o professor">Exportar .json</button>
   <button id="bDeb">Debrief</button>
   <button class="sec" id="bRst">Reiniciar</button>
 </header>
@@ -206,8 +207,9 @@ function verdict(v){
       h('label',{class:'opt'},h('input',{type:'radio',name,value:'fp',checked:done&&done.v==='fp'?'':false,disabled:dis?'':false}),' Falso positivo / atividade legítima'));
     const note=h('textarea',{rows:'2',maxlength:'400',placeholder:'Justificativa: que evidência (ou contexto) sustenta o seu veredito?',disabled:dis?'':false},done?done.note:'');
     const err=h('div',{class:'err',role:'alert'});
-    card.append(note,err,h('button',{disabled:dis?'':false,onclick:()=>{const c=card.querySelector(`[name=${name}]:checked`);if(!c){err.textContent='Escolha um veredito.';return;}
-      S.cases[k]={v:c.value,note:note.value.trim(),n:ev.length};render();}},'Registrar'));
+    const conf=h('select',{'aria-label':'Confiança',disabled:dis?'':false},h('option',{value:''},'Confiança: - selecione -'),...[['1','1 - chutei'],['2','2 - insegura(o)'],['3','3 - razoável'],['4','4 - confiante'],['5','5 - tenho certeza']].map(([x,t])=>h('option',{value:x,selected:done&&done.conf===x?'':false},'Confiança: '+t)));
+    card.append(conf,note,err,h('button',{disabled:dis?'':false,onclick:()=>{const c=card.querySelector(`[name=${name}]:checked`);if(!c||!conf.value){err.textContent='Escolha um veredito e o nível de confiança.';return;}
+      S.cases[k]={v:c.value,conf:conf.value,note:note.value.trim(),n:ev.length};render();}},'Registrar'));
     if(done){const st=STORIES[k];const ok=(done.v==='real')===st.real;
       card.append(h('div',{class:'res'},h('span',{class:'chip '+(ok?'ok':'no')},ok?'✔ Veredito correto':'✘ Veredito diferente do esperado'),' ',h('b',null,st.real?'Esperado: incidente real':'Esperado: falso positivo / legítimo'),h('p',null,st.why)));}
     v.append(card);});
@@ -251,9 +253,9 @@ function detect(v){
     const m=evalRule(EV,rule);const mt=metrics(EV,m,C.tag);const pass=C.ok(mt);if(pass)S.passed.add(C.id);
     R.res={mt,pass,sample:m.slice(0,12).map(e=>`${fmt(e.t)} [${e.s}] ${e.h} ${e.u||'-'} ${e.x} ${e.m}`)};render();}
   function show(r){const mt=r.mt;const names={f_scan:'varredura do scanner autorizado',f_pwexp:'troca de senha em lote',f_backup:'jobs de conta de serviço/backup legítimos',f_batch:'jobs de conta de serviço legítimos',f_admin:'admin legítimo no jump host',ruido:'eventos de rotina'};
-    const prec=mt.tp+mt.fp?Math.round(mt.tp/(mt.tp+mt.fp)*100):0,rec=mt.total?Math.round(mt.tp/mt.total*100):0;
+    const prec=mt.tp+mt.fp?Math.round(mt.tp/(mt.tp+mt.fp)*100):0,rec=mt.total?Math.round(mt.tp/mt.total*100):0,f1=prec+rec?Math.round(2*prec*rec/(prec+rec)):0;S.f1=S.f1||{};S.f1[C.id]=Math.max(S.f1[C.id]||0,f1);
     v.append(h('div',{class:'res'},h('span',{class:'chip '+(r.pass?'ok':'no')},r.pass?'✔ Regra aprovada':'✘ Ainda não atende ao critério'),
-      h('p',null,`Eventos que a regra pega: ${mt.matched} | Alvo detectado: ${mt.tp}/${mt.total} (recall ${rec}%) | Falsos positivos: ${mt.fp} (precisão ${prec}%)`),
+      h('p',null,`Eventos que a regra pega: ${mt.matched} | Alvo detectado: ${mt.tp}/${mt.total} (recall ${rec}%) | Falsos positivos: ${mt.fp} (precisão ${prec}%) | F1: ${f1}%`),h('p',{class:'mut'},'F1 é a média harmônica de precisão e recall: só é alto quando os dois são altos.'),
       mt.fp?h('p',{class:'badc'},'Sua regra alertou em: '+mt.fpStories.map(s=>names[s]||s).join('; ')+'. Como diferenciar do ataque?'):null,
       mt.fn?h('p',{class:'badc'},`Faltou pegar ${mt.fn} evento(s) do ataque-alvo.`):null,
       h('pre',{style:'background:var(--bg);padding:8px;border-radius:6px;overflow:auto;font-size:12px;white-space:pre-wrap'},r.sample.join('\n')+(mt.matched>12?`\n... +${mt.matched-12}`:''))));}
@@ -291,6 +293,7 @@ function respond(v){
 function debrief(){const d=$('#dlg');d.replaceChildren();
   const atk=EV.filter(e=>ATTACK_TAGS.includes(e.l)),hit=atk.filter(e=>S.flags.has(e.i)).length;
   d.append(h('h2',null,'Debrief'),h('p',null,`Indícios de intrusão sinalizados: ${hit}/${atk.length} | Achados julgados: ${Object.keys(S.cases).length} | Regras aprovadas: ${S.passed.size}/3`),
+    h('p',null,h('b',null,'Calibração: '),calibTxt(Object.entries(S.cases).map(([k,c])=>({ok:(c.v==='real')===STORIES[k].real,conf:+c.conf}))),'. Errar com confiança alta é o ponto cego mais perigoso: reveja esses casos primeiro.'),
     h('h3',null,'Perguntas para discussão'),
     h('ol',null,
      h('li',null,'O spray gerou 14 falhas em 3 horas. Por que nenhum alerta tradicional (lockout por usuário) pegou? O que a correlação "mesma origem, muitos usuários" muda?'),
@@ -307,6 +310,17 @@ function report(){const who=$('#analyst').value.trim()||'(não informado)';
     m+=`- ${c.title}: ${S.passed.has(c.id)?'aprovada':'não aprovada'}${R?` | ${conds} | N=${R.n}, janela=${R.win}min, por=${R.by}`:''}\n`;});
   if(S.ir)m+='\n## Resposta\nRegistrada (cronologia, escopo e fases).\n';
   const b=new Blob([m],{type:'text/markdown'});const u=URL.createObjectURL(b);const l=h('a',{href:u,download:'relatorio-siem.md'});document.body.append(l);l.click();l.remove();setTimeout(()=>URL.revokeObjectURL(u),1000);}
+const T0=Date.now();
+function exportJson(lab,items,extra){const o={schema:1,lab,ts:new Date().toISOString(),mins:Math.round((Date.now()-T0)/60000),who:($('#analyst').value.trim()||null),items,extra:extra||{}};
+  const b=new Blob([JSON.stringify(o,null,1)],{type:'application/json'});const u=URL.createObjectURL(b);const l=h('a',{href:u,download:`resultado-${lab}.json`});document.body.append(l);l.click();l.remove();setTimeout(()=>URL.revokeObjectURL(u),1000);}
+function calibTxt(list){const hi=list.filter(x=>x.conf>=4),lo=list.filter(x=>x.conf&&x.conf<=2);
+  return `confiança alta (4-5): ${hi.filter(x=>x.ok).length} acertos e ${hi.filter(x=>!x.ok).length} erros | confiança baixa (1-2): ${lo.filter(x=>x.ok).length} acertos e ${lo.filter(x=>!x.ok).length} erros`;}
+function exportLab2(){
+  const atk=EV.filter(e=>ATTACK_TAGS.includes(e.l)),hit=atk.filter(e=>S.flags.has(e.i)).length,fl=S.flags.size,fp=[...S.flags].filter(i=>!ATTACK_TAGS.includes(EV[i-1].l)).length;
+  const items=[...Object.entries(S.cases).map(([k,c])=>({id:'achado_'+k,conf:+c.conf,m:{veredito:(c.v==='real')===STORIES[k].real}})),...CHAL.map(c=>({id:'regra_'+c.id,m:{aprovada:S.passed.has(c.id)}}))];
+  if(S.ir){const A=S.ir;items.push({id:'resposta_ir',m:{cronologia:IR_TL.every(([k],i)=>+A.tl[k]===i+1),escopo:IR_ASSETS.every(([,r],i)=>(!!r)===A.sc.includes(i)),fases:IR_ACTS.every(([,p],i)=>+A.ph[i]===p)}});}
+  exportJson('siem',items,{recall_caca:atk.length?+(hit/atk.length).toFixed(2):0,precisao_caca:fl?+(1-fp/fl).toFixed(2):null,f1_regras:S.f1||{}});}
+$('#bJson').addEventListener('click',exportLab2);
 $('#bDeb').addEventListener('click',debrief);$('#bRep').addEventListener('click',report);
 $('#bRst').addEventListener('click',()=>{if(confirm('Reiniciar? Todo o progresso será apagado.')){fresh();render();}});
 render();
