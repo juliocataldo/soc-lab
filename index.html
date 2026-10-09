@@ -55,6 +55,11 @@ dialog{background:var(--panel);color:var(--tx);border:1px solid var(--line);bord
 dialog::backdrop{background:#000a}
 .tl div{padding:3px 0;border-bottom:1px dashed var(--line)}
 .warn{background:#2a2410;border:1px solid var(--warn);border-radius:8px;padding:8px 10px;color:#f0d98a;font-size:13px}
+a{color:var(--acc)}
+.tools{table-layout:fixed}.tools td:first-child{width:210px;white-space:nowrap}
+@media(max-width:700px){.tools td:first-child{width:auto;white-space:normal}}
+.tools .chip{margin-left:4px}
+.irl{margin-top:4px;font-size:12px;color:var(--mut)}.irl a{margin-right:8px}
 </style>
 </head>
 <body>
@@ -64,6 +69,7 @@ dialog::backdrop{background:#000a}
   <div class="kpi"><b id="kTri">0/12</b><span>Triados</span></div>
   <div class="kpi"><b id="kVer">0</b><span>Vereditos certos</span></div>
   <div class="kpi"><b id="kEnr">0</b><span>Consultas feitas</span></div>
+  <button class="sec" id="bTools" title="Ferramentas reais de análise de IOCs">Ferramentas</button>
   <button class="sec" id="bRep">Relatório</button>
   <button class="sec" id="bJson" title="Resultado estruturado para o professor">Exportar .json</button>
   <button id="bDeb">Debrief</button>
@@ -225,6 +231,77 @@ Classificação DLP: Confidencial - Financeiro`,
   why:'Exfiltração de dados confidenciais pelo host já comprometido (A-004/A-008). Se o WKS-FIN-07 tivesse sido isolado às 09:44, esses 2,1 GB não teriam saído: é o custo de uma triagem lenta.'}}
 ];
 
+/* ===== Ferramentas reais (OSINT / threat intel) - só links, nada é consultado automaticamente ===== */
+const TOOLS={
+ abuseipdb:['AbuseIPDB','https://www.abuseipdb.com/','Reputação de IP por denúncias da comunidade (score de confiança, categorias de abuso).'],
+ greynoise:['GreyNoise','https://viz.greynoise.io/','Diz se o IP é "ruído de internet" (scanner em massa) ou atividade direcionada.'],
+ shodan:['Shodan','https://www.shodan.io/','Portas e serviços expostos de um IP (a maioria das buscas exige conta gratuita).','conta'],
+ censys:['Censys','https://search.censys.io/','Serviços expostos e certificados associados a IPs e hosts.','conta'],
+ ipinfo:['IPinfo','https://ipinfo.io/','Geolocalização, ASN e tipo de rede (hosting, ISP residencial, VPN).'],
+ talos:['Cisco Talos','https://talosintelligence.com/reputation_center','Reputação de IP e domínio (web e e-mail).'],
+ icann:['ICANN Lookup','https://lookup.icann.org/','WHOIS/RDAP oficial: data de criação, registrar e status do domínio.'],
+ whois:['DomainTools Whois','https://whois.domaintools.com/','WHOIS rápido com idade do domínio e servidores de nome.'],
+ crtsh:['crt.sh','https://crt.sh/','Certificate Transparency: certificados emitidos para o domínio e seus subdomínios.'],
+ sectrails:['SecurityTrails','https://securitytrails.com/','Histórico de DNS: para quais IPs o domínio já apontou.','conta'],
+ dnsdumpster:['DNSDumpster','https://dnsdumpster.com/','Mapa de registros DNS e subdomínios de um domínio.'],
+ urlscan:['urlscan.io','https://urlscan.io/','Visita a URL por você e mostra print, requisições e para onde o formulário envia.'],
+ gsb:['Google Safe Browsing','https://transparencyreport.google.com/safe-browsing/search','Verifica se o site está marcado como inseguro (phishing/malware).'],
+ urlhaus:['URLhaus','https://urlhaus.abuse.ch/','Base de URLs usadas para distribuir malware (abuse.ch).'],
+ wayback:['Wayback Machine','https://web.archive.org/','Versões antigas de um site: ajuda a ver se o domínio é novo ou mudou de dono.'],
+ vt:['VirusTotal','https://www.virustotal.com/','Reputação de hash, URL, domínio e IP em dezenas de engines.'],
+ bazaar:['MalwareBazaar','https://bazaar.abuse.ch/','Amostras de malware por hash, com família e tags (abuse.ch).'],
+ hybrid:['Hybrid Analysis','https://www.hybrid-analysis.com/','Relatórios de sandbox: o comportamento do arquivo ao ser executado.'],
+ anyrun:['ANY.RUN','https://any.run/','Sandbox interativa; as análises do plano gratuito são públicas.','conta'],
+ otx:['AlienVault OTX','https://otx.alienvault.com/','Pulses da comunidade ligando IOCs a campanhas e famílias de malware.'],
+ threatfox:['ThreatFox','https://threatfox.abuse.ch/','IOCs de C2 e malware compartilhados pela comunidade (abuse.ch).'],
+ pulsedive:['Pulsedive','https://pulsedive.com/','Enriquecimento e score de risco de IOCs, com as relações entre eles.'],
+ xforce:['IBM X-Force Exchange','https://exchange.xforce.ibmcloud.com/','Reputação de IP, URL e hash e relatórios de ameaças.','conta'],
+ mxtb:['MXToolbox','https://mxtoolbox.com/','SPF, DKIM, DMARC, blocklists e análise de cabeçalho de e-mail.'],
+ gheader:['Google Messageheader','https://toolbox.googleapps.com/apps/messageheader/','Lê o cabeçalho bruto do e-mail e mostra o caminho e os atrasos entre servidores.'],
+ hibp:['Have I Been Pwned','https://haveibeenpwned.com/','Mostra se um e-mail apareceu em vazamentos conhecidos.'],
+ cyberchef:['CyberChef','https://gchq.github.io/CyberChef/','Decodifica Base64, UTF-16, hex etc. Roda no navegador e pode ser baixado para uso offline.'],
+ attack:['MITRE ATT&CK','https://attack.mitre.org/','Táticas e técnicas: confirme o ID que você escolheu na triagem.'],
+ lolbas:['LOLBAS','https://lolbas-project.github.io/','Binários legítimos do Windows que atacantes abusam (living off the land).'],
+ startme:['OSINT +500 Tools (start.me)','https://start.me/p/0Pqbdg/osint-500-tools','Coletânea grande mantida por terceiros, para explorar além desta lista.']
+};
+const TOOL_CATS=[
+ ['IP',['abuseipdb','greynoise','ipinfo','talos','shodan','censys']],
+ ['Domínio, DNS e WHOIS',['icann','whois','crtsh','dnsdumpster','sectrails']],
+ ['URL e site',['urlscan','gsb','urlhaus','wayback']],
+ ['Arquivo, hash e malware',['vt','bazaar','hybrid','anyrun']],
+ ['Threat intelligence (agregadores)',['otx','threatfox','pulsedive','xforce']],
+ ['E-mail',['mxtb','gheader','hibp']],
+ ['Decodificação e referência',['cyberchef','attack','lolbas']],
+ ['Para ir além',['startme']]
+];
+/* Ferramenta real que faria cada consulta simulada, por tipo de IOC */
+const IOC_TOOLS={'IP':['abuseipdb','greynoise','otx'],'Domínio':['icann','crtsh','otx','vt'],'URL':['urlscan','vt','urlhaus'],
+ 'Remetente':['mxtb','gheader'],'SHA-256':['vt','bazaar'],'Comando decodificado':['cyberchef'],'Binário':['lolbas']};
+function extLink(u,t){return h('a',{href:u,target:'_blank',rel:'noopener noreferrer',referrerpolicy:'no-referrer'},t);}
+function toolLink(k){const[n,u]=TOOLS[k];return extLink(u,n);}
+const ATTACK_MATRIX='https://attack.mitre.org/matrices/enterprise/';
+const attackUrl=id=>'https://attack.mitre.org/techniques/'+id.replace('.','/')+'/'; // T1566.002 -> /techniques/T1566/002/
+const PRIV=/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/;
+function irl(t,v){if(t==='IP'&&PRIV.test(v))return h('div',{class:'irl'},'Na vida real: IP interno (RFC 1918). Consulte CMDB, inventário e EDR; nunca o envie a sites públicos.');
+  const ks=IOC_TOOLS[t];return ks?h('div',{class:'irl'},'Na vida real: ',...ks.map(toolLink)):null;}
+function openTools(){
+  const dlg=$('#dlg');dlg.replaceChildren();
+  dlg.append(h('h2',null,'Ferramentas de análise (mundo real)'),
+    h('p',null,'Os botões Consultar deste console simulam estas ferramentas. Elas existem de verdade e quase todas são gratuitas: use-as para treinar fora do exercício.'),
+    h('div',{class:'warn'},h('b',null,'OPSEC antes de colar qualquer coisa:'),
+      h('ul',{style:'margin:4px 0 0;padding-left:18px'},
+        h('li',null,'O que você envia pode virar público. Arquivos enviados ao VirusTotal ficam disponíveis para assinantes, e os scans do urlscan são públicos por padrão. Prefira buscar pelo HASH e use a visibilidade "private" ou "unlisted".'),
+        h('li',null,'Nunca envie IPs internos, nomes de host, e-mails de colegas, documentos da empresa ou dados pessoais (LGPD).'),
+        h('li',null,'Não abra a URL suspeita no seu navegador: deixe uma sandbox ou o urlscan visitar por você.'),
+        h('li',null,'Os IOCs deste lab são fictícios (RFC 5737 e .example) e não trarão resultado. Para praticar, pesquise indicadores públicos e benignos, como 8.8.8.8 ou o domínio da faculdade.'))));
+  for(const[cat,ks]of TOOL_CATS){
+    dlg.append(h('h3',null,cat),h('table',{class:'tools'},...ks.map(k=>{const[,,d,c]=TOOLS[k];
+      return h('tr',null,h('td',null,toolLink(k),c?h('span',{class:'chip',title:'Exige cadastro gratuito'},c):null),h('td',null,d));})));}
+  dlg.append(h('p',{class:'empty',style:'font-size:12px'},'Os links abrem em nova aba. Nenhum dado do console é enviado a esses sites.'),
+    h('div',{style:'margin-top:14px;display:flex;gap:8px'},h('button',{class:'sec',onclick:()=>dlg.close()},'Fechar')));
+  dlg.showModal();
+}
+
 /* ===== Estado e helpers ===== */
 const S={sel:null,filter:'all',st:{},enr:new Set()}; // st[id]={ans,g}
 const $=s=>document.querySelector(s);
@@ -262,8 +339,9 @@ function renderDetail(){
     h('p',null,a.summary),h('h3',null,'Evidência'),h('pre',null,a.log),h('h3',null,'IOCs (clique em Consultar)'));
   const tb=h('table',null,h('tr',null,h('th',null,'Tipo'),h('th',null,'Valor'),h('th',null,'')));
   a.iocs.forEach((o,i)=>{const key=`${a.id}:${i}`;const slot=h('div');
-    const btn=h('button',{class:'sec',onclick:()=>{S.enr.add(key);slot.replaceChildren(h('div',{class:'enr'},o.r,h('small',null,'Fonte simulada para fins didáticos')));btn.disabled=true;$('#kEnr').textContent=S.enr.size;}},'Consultar');
-    if(S.enr.has(key)){slot.append(h('div',{class:'enr'},o.r,h('small',null,'Fonte simulada para fins didáticos')));btn.disabled=true;}
+    const res=()=>h('div',{class:'enr'},o.r,h('small',null,'Fonte simulada para fins didáticos'),irl(o.t,o.v));
+    const btn=h('button',{class:'sec',onclick:()=>{S.enr.add(key);slot.replaceChildren(res());btn.disabled=true;$('#kEnr').textContent=S.enr.size;}},'Consultar');
+    if(S.enr.has(key)){slot.append(res());btn.disabled=true;}
     tb.append(h('tr',null,h('td',null,o.t),h('td',null,h('code',null,o.v),slot),h('td',null,btn)));});
   box.append(tb,h('h3',null,'Sua triagem'));
   box.append(buildForm(a,done));
@@ -277,8 +355,13 @@ function buildForm(a,done){
     h('fieldset',null,h('legend',null,'Veredito'),...Object.entries(VERD).map(([k,v])=>radio('verdict',k,v,A.verdict===k))),
     h('fieldset',null,h('legend',null,'Severidade real'),...SEVS.map(s=>radio('sev',s,s,A.sev===s)))));
   const sel=(id,opts,val)=>{const s=h('select',{id,disabled:dis?'':false},h('option',{value:''},'- selecione -'),...opts.map(([v,t])=>h('option',{value:v,selected:val===v?'':false},v==='NA'||v==='none'?t:(id==='tech'?`${v} - ${t}`:t))));return s;};
+  /* Atalho para o ATT&CK: matriz sempre visível + página da técnica escolhida */
+  const techSel=sel('tech',TECHS,A.tech),techHelp=h('div',{class:'irl'});
+  const updTech=()=>{const v=techSel.value;techHelp.replaceChildren(extLink(ATTACK_MATRIX,'Abrir matriz ATT&CK ↗'),
+    v&&v!=='NA'?extLink(attackUrl(v),`Ler ${v} ↗`):null);};
+  techSel.addEventListener('change',updTech);updTech();
   f.append(h('div',{class:'grid2'},
-    h('div',null,h('label',{for:'tech'},'Técnica MITRE ATT&CK'),sel('tech',TECHS,A.tech)),
+    h('div',null,h('label',{for:'tech'},'Técnica MITRE ATT&CK'),techSel,techHelp),
     h('div',null,h('label',{for:'inc'},'Relação com outros alertas'),sel('inc',[['A','Faz parte de uma cadeia de ataque (Incidente A)'],['none','Evento isolado / sem relação']],A.inc)),
     h('div',null,h('label',{for:'conf'},'Confiança na sua triagem'),sel('conf',[['1','1 - chutei'],['2','2 - insegura(o)'],['3','3 - razoável'],['4','4 - confiante'],['5','5 - tenho certeza']],A.conf))));
   f.append(h('fieldset',{style:'margin-top:10px'},h('legend',null,'Ações recomendadas'),...Object.entries(ACTIONS).map(([k,v])=>
@@ -297,6 +380,7 @@ function buildFeedback(a,d){
   const fb=h('div',{class:'fb'},h('b',null,`Análise de referência (${g.pts}/5 pontos de aderência)`),
     h('div',{class:'r',style:'margin-top:6px'},mk(g.v,'Veredito'),mk(g.s,'Severidade'),mk(g.t,'Técnica'),mk(g.i,'Correlação'),mk(g.ac,'Ações')),
     h('p',null,h('b',null,'Esperado: '),`${VERD[r.verdict]} | ${r.sev} | ${r.tech==='NA'?'N/A':r.tech} | ${r.inc==='A'?'Incidente A':'isolado'}`),
+    r.tech!=='NA'?h('p',null,'Estude a técnica: ',extLink(attackUrl(r.tech),`${r.tech} no MITRE ATT&CK ↗`)):null,
     h('p',null,h('b',null,'Ações essenciais: '),r.must.map(x=>ACTIONS[x]).join('; ')+'.'),
     g.miss.length?h('p',{class:'badc'},'Faltou: '+g.miss.map(x=>ACTIONS[x]).join('; ')):null,
     g.extra.length?h('p',{class:'badc'},'Desnecessário/arriscado aqui: '+g.extra.map(x=>ACTIONS[x]).join('; ')):null,
@@ -350,6 +434,7 @@ $('#bJson').addEventListener('click',exportLab1);
 document.querySelectorAll('.filters button').forEach(b=>b.addEventListener('click',()=>{S.filter=b.dataset.f;
   document.querySelectorAll('.filters button').forEach(x=>{x.classList.toggle('on',x===b);x.classList.toggle('sec',x!==b);});renderList();}));
 $('#bDeb').addEventListener('click',openDebrief);
+$('#bTools').addEventListener('click',openTools);
 $('#bRep').addEventListener('click',downloadReport);
 $('#bRst').addEventListener('click',()=>{if(confirm('Reiniciar o turno? Todas as triagens serão apagadas.')){S.sel=null;S.st={};S.enr=new Set();renderList();renderDetail();}});
 renderList();renderDetail();

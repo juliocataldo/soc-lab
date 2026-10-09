@@ -21,7 +21,7 @@ Triar os **12 alertas** da fila, em **30-40 minutos**. Em cada alerta:
    - *Falso positivo*: o alerta disparou, mas a atividade é legítima;
    - *Inconclusivo*: faltam evidências para decidir (e então?).
 4. **Defina a severidade REAL.** Ela pode ser diferente da que o sistema atribuiu.
-5. **Escolha a técnica MITRE ATT&CK** que melhor descreve o comportamento.
+5. **Escolha a técnica MITRE ATT&CK** que melhor descreve o comportamento. Use o link **Abrir matriz ATT&CK** abaixo do campo para pesquisar e, depois de escolher, **Ler T...** para conferir a descrição da técnica antes de registrar.
 6. **Diga se o alerta se relaciona com outros** (faz parte de uma cadeia de ataque ou é isolado).
 7. **Marque as ações de resposta** adequadas.
 8. Escreva uma **justificativa curta** (1-2 linhas) e clique em **Registrar triagem**.
@@ -35,6 +35,7 @@ O objetivo é **aprender com os erros**, não "zerar" o placar.
 ## Botões do topo
 | Botão | Para quê |
 |---|---|
+| **Ferramentas** | Ferramentas reais (AbuseIPDB, AlienVault OTX, VirusTotal, urlscan etc.) organizadas por tipo de IOC. |
 | **Relatório** | Baixa um `.md` com suas triagens e justificativas. |
 | **Debrief** | Resumo do turno, linha do tempo e perguntas de discussão. Use ao final. |
 | **Reiniciar** | Apaga as triagens e começa de novo. |
@@ -69,6 +70,14 @@ O objetivo é **aprender com os erros**, não "zerar" o placar.
 - Discuta com a dupla, mas **registre a sua própria triagem**.
 - Não compartilhe o gabarito com quem ainda não fez.
 - Os IOCs deste exercício **não são reais**: nunca os use para bloquear nada em ambiente de verdade.
+
+## Ferramentas do mundo real
+Cada consulta simulada também mostra **qual ferramenta real** faria aquela análise ("Na vida real: ..."). O botão **Ferramentas** reúne a lista completa por categoria: IP, domínio/DNS, URL, hash/malware, threat intel, e-mail e decodificação.
+
+Antes de usar essas ferramentas fora do lab, lembre do **OPSEC**:
+- O que você envia a esses sites pode ficar **público** (upload no VirusTotal, scans do urlscan). Prefira buscar pelo **hash** e use a visibilidade *private/unlisted*.
+- **Nunca** envie IPs internos, nomes de host, e-mails de colegas, documentos da empresa ou dados pessoais (LGPD).
+- Não abra a URL suspeita no seu navegador: deixe uma sandbox ou o urlscan visitar por você.
 
 ## Confiança (metacognição)
 Em cada decisão você informa **o quanto confia nela** (1 = chutei, 5 = tenho certeza). No Debrief você vê seus erros com **confiança alta**: são o ponto cego mais perigoso de um profissional de segurança, e o melhor lugar para estudar primeiro.
